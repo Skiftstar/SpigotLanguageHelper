@@ -4,4 +4,3 @@ jdk:
 before_install:
   - wget https://github.com/sormuras/bach/raw/master/install-jdk.sh
   - source install-jdk.sh
-  - jshell --version
