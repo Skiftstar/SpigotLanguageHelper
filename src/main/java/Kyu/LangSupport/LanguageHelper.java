@@ -73,6 +73,7 @@ public final class LanguageHelper {
                     } else {
                         String message = color(conf.getString(key + "." + messageKey));
                         langMessages.put(messageKey, message);
+                        plugin.getLogger().info("Putting Message " + messageKey + " from " + name + " into map!");
                     }
                 }
             }
