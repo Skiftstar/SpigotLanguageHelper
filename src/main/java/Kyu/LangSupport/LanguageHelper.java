@@ -44,6 +44,11 @@ public final class LanguageHelper {
         }
         pLangConf = YamlConfiguration.loadConfiguration(pLangFile);
 
+        File folder = new File(plugin.getDataFolder() + "/locales");
+        if (!folder.exists()) {
+            folder.mkdir();
+        }
+
         loadMessages();
         new MessageJoinListener(plugin);
     }
