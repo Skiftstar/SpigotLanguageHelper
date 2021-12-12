@@ -3,5 +3,5 @@ jdk:
 
 before_install:
   - wget https://github.com/sormuras/bach/raw/master/install-jdk.sh
-  - chmod +x install-jdk.sh --feature 17
-  - ./install-jdk.sh
+  - chmod +x install-jdk.sh
+  - ./install-jdk.sh --feature 17
