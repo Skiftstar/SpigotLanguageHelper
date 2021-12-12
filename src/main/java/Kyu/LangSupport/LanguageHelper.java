@@ -114,33 +114,33 @@ public final class LanguageHelper {
     public static List<String> getLore(Player p, String loreKey) {
         String pLang;
         if (!playerLangs.containsKey(p)) {
-            pLang = "en";
+            pLang = defaultLang;
             setupPlayer(p);
         } else {
             pLang = playerLangs.get(p);
         }
         if (!lores.containsKey(pLang)) {
-            return lores.get("en").getOrDefault(loreKey, new ArrayList<>(Arrays.asList(color("&cLore &4 " + loreKey + " &c not found!"))));
+            return lores.get(defaultLang).getOrDefault(loreKey, new ArrayList<>(Arrays.asList(color("&cLore &4 " + loreKey + " &c not found!"))));
         } else {
             return lores.get(pLang).getOrDefault(loreKey, new ArrayList<>(Arrays.asList(color("&cLore &4 " + loreKey + " &c not found!"))));
         }
     }
 
     public static List<String> getLore(String loreKey) {
-        return lores.get("en").getOrDefault(loreKey, new ArrayList<>(Arrays.asList(color("&cLore &4 " + loreKey + " &c not found!"))));
+        return lores.get(defaultLang).getOrDefault(loreKey, new ArrayList<>(Arrays.asList(color("&cLore &4 " + loreKey + " &c not found!"))));
     }
 
     public static String getMess(Player p, String messageKey, boolean... usePrefix) {
         String pLang;
         if (!playerLangs.containsKey(p)) {
-            pLang = "en";
+            pLang = defaultLang;
             setupPlayer(p);
         } else {
             pLang = playerLangs.get(p);
         }
         String message;
         if (!messages.containsKey(pLang)) {
-            message = messages.get("en").getOrDefault(messageKey, color("&cMessage &4" + messageKey + "&c not found!"));
+            message = messages.get(defaultLang).getOrDefault(messageKey, color("&cMessage &4" + messageKey + "&c not found!"));
         } else {
             message = messages.get(pLang).getOrDefault(messageKey, color("&cMessage &4" + messageKey + "&c not found!"));
         }
@@ -151,7 +151,7 @@ public final class LanguageHelper {
     }
 
     public static String getMess(String messageKey, boolean... usePrefix) {
-        String message = messages.get("en").getOrDefault(messageKey, color("&cMessage &4" + messageKey + "&c not found!"));
+        String message = messages.get(defaultLang).getOrDefault(messageKey, color("&cMessage &4" + messageKey + "&c not found!"));
         if (usePrefix.length > 0 && usePrefix[0]) {
             message = prefix + message;
         }
