@@ -1,0 +1,4 @@
+name: LangSupport
+version: '${project.version}'
+main: Kyu.LangSupport.Main
+api-version: 1.18
