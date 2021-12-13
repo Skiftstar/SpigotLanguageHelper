@@ -8,18 +8,21 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class MessageJoinListener implements Listener {
 
-    public MessageJoinListener(JavaPlugin plugin) {
+    private LanguageHelper helper;
+
+    public MessageJoinListener(JavaPlugin plugin, LanguageHelper helper) {
+        this.helper = helper;
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     @EventHandler
     private void onJoin(PlayerJoinEvent e) {
-        LanguageHelper.setupPlayer(e.getPlayer());
+        helper.setupPlayer(e.getPlayer());
     }
 
     @EventHandler
     private void onLeave(PlayerQuitEvent e) {
-        LanguageHelper.remPlayer(e.getPlayer());
+        helper.remPlayer(e.getPlayer());
     }
 
 }

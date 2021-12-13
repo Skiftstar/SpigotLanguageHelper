@@ -12,27 +12,31 @@ import java.util.*;
 
 public final class LanguageHelper {
 
-    private static String defaultLang;
-    private static Reader defaultLangResource;
+    private String defaultLang;
+    private Reader defaultLangResource;
 
-    private static String prefix;
+    private String prefix;
 
-    private static YamlConfiguration pLangConf;
-    private static File pLangFile;
+    private YamlConfiguration pLangConf;
+    private File pLangFile;
 
-    private static Map<String, Map<String, String>> messages = new HashMap<>();
-    private static Map<String, Map<String, List<String>>> lores = new HashMap<>();
+    private Map<String, Map<String, String>> messages = new HashMap<>();
+    private Map<String, Map<String, List<String>>> lores = new HashMap<>();
 
-    private static Map<Player, String> playerLangs = new HashMap<>();
+    private Map<Player, String> playerLangs = new HashMap<>();
 
-    private static JavaPlugin plugin;
+    private JavaPlugin plugin;
 
-    public static void setup(JavaPlugin plugin, String defaultLang, Reader langResource, String prefix) {
-        LanguageHelper.plugin = plugin;
-        LanguageHelper.defaultLang = defaultLang;
-        LanguageHelper.defaultLangResource = langResource;
-        LanguageHelper.prefix = prefix;
+    public LanguageHelper(JavaPlugin plugin, String defaultLang, Reader langResource, String prefix) {
+        this.plugin = plugin;
+        this.defaultLang = defaultLang;
+        this.defaultLangResource = langResource;
+        this.prefix = prefix;
 
+        setup();
+    }
+
+    public void setup() {
         pLangFile = new File(plugin.getDataFolder(), "playerLangs.yml");
         if (!pLangFile.exists()) {
             try {
@@ -50,10 +54,10 @@ public final class LanguageHelper {
         }
 
         loadMessages();
-        new MessageJoinListener(plugin);
+        new MessageJoinListener(plugin, this);
     }
 
-    private static void loadMessages() {
+    private void loadMessages() {
         updateDefaultLangFile();
 
         File folder = new File(plugin.getDataFolder() + "/locales");
@@ -83,7 +87,7 @@ public final class LanguageHelper {
 
     }
 
-    private static void updateDefaultLangFile() {
+    private void updateDefaultLangFile() {
         File file = new File(plugin.getDataFolder(), "locales/" + defaultLang + ".yml");
         if (!file.exists()) {
             try {
@@ -111,7 +115,7 @@ public final class LanguageHelper {
     }
 
 
-    public static List<String> getLore(Player p, String loreKey) {
+    public List<String> getLore(Player p, String loreKey) {
         String pLang;
         if (!playerLangs.containsKey(p)) {
             pLang = defaultLang;
@@ -126,11 +130,11 @@ public final class LanguageHelper {
         }
     }
 
-    public static List<String> getLore(String loreKey) {
+    public List<String> getLore(String loreKey) {
         return lores.get(defaultLang).getOrDefault(loreKey, new ArrayList<>(Arrays.asList(color("&cLore &4 " + loreKey + " &c not found!"))));
     }
 
-    public static String getMess(Player p, String messageKey, boolean... usePrefix) {
+    public String getMess(Player p, String messageKey, boolean... usePrefix) {
         String pLang;
         if (!playerLangs.containsKey(p)) {
             pLang = defaultLang;
@@ -150,7 +154,7 @@ public final class LanguageHelper {
         return message;
     }
 
-    public static String getMess(String messageKey, boolean... usePrefix) {
+    public String getMess(String messageKey, boolean... usePrefix) {
         String message = messages.get(defaultLang).getOrDefault(messageKey, color("&cMessage &4" + messageKey + "&c not found!"));
         if (usePrefix.length > 0 && usePrefix[0]) {
             message = prefix + message;
@@ -158,7 +162,7 @@ public final class LanguageHelper {
         return message;
     }
 
-    public static void setupPlayer(Player p) {
+    public void setupPlayer(Player p) {
         if (pLangConf.get(p.getUniqueId().toString()) == null) {
             p.sendMessage(getMess("NoLangSet", true).replace("%default", defaultLang));
             pLangConf.set(p.getUniqueId().toString(), defaultLang);
@@ -170,11 +174,11 @@ public final class LanguageHelper {
         }
     }
 
-    private static String color(String s) {
+    private String color(String s) {
         return ChatColor.translateAlternateColorCodes('&', s);
     }
 
-    private static void saveConfig(YamlConfiguration config, File toSave) {
+    private void saveConfig(YamlConfiguration config, File toSave) {
         try {
             config.save(toSave);
         } catch (IOException e) {
@@ -183,18 +187,18 @@ public final class LanguageHelper {
     }
 
 
-    public static void changeLang(Player p, String newLang) {
+    public void changeLang(Player p, String newLang) {
         playerLangs.remove(p);
         playerLangs.put(p, newLang);
         pLangConf.set(p.getUniqueId().toString(), newLang);
         saveConfig(pLangConf, pLangFile);
     }
 
-    public static void remPlayer(Player p) {
+    public void remPlayer(Player p) {
         playerLangs.remove(p);
     }
 
-    public static String getDefaultLang() {
+    public String getDefaultLang() {
         return defaultLang;
     }
 }
