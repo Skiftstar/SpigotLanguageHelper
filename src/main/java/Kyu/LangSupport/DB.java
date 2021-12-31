@@ -10,6 +10,8 @@ public class DB {
     private MariaDbDataSource dataSource;
 
     public DB(String host, int port, String user, String password, String database) {
+        this.user = user;
+        this.password = password;
         try {
             Class.forName("org.mariadb.jdbc.Driver");
         } catch (ClassNotFoundException e1) {
