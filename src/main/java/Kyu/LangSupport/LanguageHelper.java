@@ -185,7 +185,7 @@ public final class LanguageHelper {
     public void setupPlayer(Player p) {
         if (!isUseDB()) {
             if (pLangConf.get(p.getUniqueId().toString()) == null) {
-                String gameLanguage = getLanguage(p);
+                String gameLanguage = p.locale().getLanguage().split("_")[0];
                 String defaultLang = this.defaultLang;
                 if (messages.get(gameLanguage) != null) {
                     defaultLang = gameLanguage;
@@ -209,7 +209,7 @@ public final class LanguageHelper {
                     String lang = rs.getString("lang");
                     playerLangs.put(p.getUniqueId(), lang);
                 } else {
-                    String gameLanguage = getLanguage(p);
+                    String gameLanguage = p.locale().getLanguage().split("_")[0];
                     String defaultLang = this.defaultLang;
                     if (messages.get(gameLanguage) != null) {
                         defaultLang = gameLanguage;
