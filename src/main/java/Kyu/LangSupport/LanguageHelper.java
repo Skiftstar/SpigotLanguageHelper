@@ -159,12 +159,16 @@ public final class LanguageHelper {
         } else {
             pLang = playerLangs.get(p.getUniqueId());
         }
+        return getMess(pLang, messageKey, usePrefix);
+    }
+
+    public String getMess(String language, String messageKey, boolean... usePrefix) {
         String message;
-        if (!messages.containsKey(pLang)) {
+        if (!messages.containsKey(language)) {
             message = messages.get(defaultLang).getOrDefault(messageKey,
                     color("&cMessage &4" + messageKey + "&c not found!"));
         } else {
-            message = messages.get(pLang).getOrDefault(messageKey,
+            message = messages.get(language).getOrDefault(messageKey,
                     color("&cMessage &4" + messageKey + "&c not found!"));
         }
         if (usePrefix.length > 0 && usePrefix[0]) {
@@ -215,7 +219,8 @@ public final class LanguageHelper {
                         defaultLang = gameLanguage;
                     }
 
-                    PreparedStatement statemt = conn.prepareStatement("INSERT INTO langusers(uuid, lang) VALUES(?, ?);");
+                    PreparedStatement statemt = conn
+                            .prepareStatement("INSERT INTO langusers(uuid, lang) VALUES(?, ?);");
                     statemt.setString(1, p.getUniqueId().toString());
                     statemt.setString(2, defaultLang);
                     statemt.execute();
@@ -302,5 +307,9 @@ public final class LanguageHelper {
 
     public DB getDatabase() {
         return database;
+    }
+
+    public Set<String> getLanguages() {
+        return messages.keySet();
     }
 }
