@@ -5,8 +5,15 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.bson.Document;
 import org.bukkit.entity.Player;
 import org.mariadb.jdbc.MariaDbDataSource;
+
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.Filters;
 
 public interface DB {
 
@@ -16,12 +23,52 @@ public interface DB {
 
     class MongoDB implements DB {
 
-        public void updateUser(String uuid, String newLang) {
+        private String uri;
+        private String database;
 
+        public MongoDB(String uri, String database) {
+            this.uri = uri;
+            this.database = database;
+        }
+
+        public void updateUser(String uuid, String newLang) {
+            MongoClient client = getConnection();
+            MongoDatabase db = client.getDatabase(database);
+            MongoCollection<Document> collection = db.getCollection("langusers");
+            collection.updateOne(Filters.eq("uuid", uuid), Filters.eq("lang", newLang), null);
+            client.close();
         }
 
         public void setupPlayer(Player p) {
+            MongoClient client = getConnection();
+            MongoDatabase db = client.getDatabase(database);
+            MongoCollection<Document> collection = db.getCollection("langusers");
 
+            Document doc = collection.find(Filters.eq("uuid", p.getUniqueId().toString())).first();
+            if (!doc.isEmpty()) {
+                String lang = doc.getString("lang");
+                LanguageHelper.playerLangs.put(p.getUniqueId(), lang);
+                client.close();
+                return;
+            }
+
+            String gameLanguage = p.locale().getLanguage().split("_")[0];
+            String defaultLang = LanguageHelper.defaultLang;
+            if (LanguageHelper.messages.get(gameLanguage) != null) {
+                defaultLang = gameLanguage;
+            }
+
+            collection.insertOne(new Document("uuid", p.getUniqueId().toString()).append("lang", defaultLang));
+
+            LanguageHelper.pLangConf.set(p.getUniqueId().toString(), defaultLang);
+            LanguageHelper.saveConfig(LanguageHelper.pLangConf, LanguageHelper.pLangFile);
+            LanguageHelper.playerLangs.put(p.getUniqueId(), defaultLang);
+            p.sendMessage(LanguageHelper.instance.getMess(p, "NoLangSet", true).replace("%default", defaultLang));
+            client.close();
+        }
+
+        private MongoClient getConnection() {
+            return MongoClients.create(uri);
         }
 
     }
@@ -96,7 +143,8 @@ public interface DB {
                     LanguageHelper.pLangConf.set(p.getUniqueId().toString(), defaultLang);
                     LanguageHelper.saveConfig(LanguageHelper.pLangConf, LanguageHelper.pLangFile);
                     LanguageHelper.playerLangs.put(p.getUniqueId(), defaultLang);
-                    p.sendMessage(LanguageHelper.instance.getMess(p, "NoLangSet", true).replace("%default", defaultLang));
+                    p.sendMessage(
+                            LanguageHelper.instance.getMess(p, "NoLangSet", true).replace("%default", defaultLang));
                 }
                 conn.close();
                 stmt.close();
