@@ -4,21 +4,18 @@ import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.*;
 
 public final class LanguageHelper {
 
-    private String defaultLang;
+    static String defaultLang;
     private Reader defaultLangResource;
 
     private String prefix;
@@ -26,20 +23,23 @@ public final class LanguageHelper {
     private boolean useDB;
     private DB database;
 
-    private YamlConfiguration pLangConf;
-    private File pLangFile;
+    static YamlConfiguration pLangConf;
+    static File pLangFile;
 
-    private Map<String, Map<String, String>> messages = new HashMap<>();
+    static Map<String, Map<String, String>> messages = new HashMap<>();
     private Map<String, Map<String, List<String>>> lores = new HashMap<>();
 
-    private Map<UUID, String> playerLangs = new HashMap<>();
+    static Map<UUID, String> playerLangs = new HashMap<>();
 
     private JavaPlugin plugin;
 
+    static LanguageHelper instance;
+
     public LanguageHelper(JavaPlugin plugin, String defaultLang, Reader langResource, String prefix, boolean useDB) {
+        LanguageHelper.instance = this;
         this.plugin = plugin;
         this.useDB = useDB;
-        this.defaultLang = defaultLang;
+        LanguageHelper.defaultLang = defaultLang;
         this.defaultLangResource = langResource;
         this.prefix = prefix;
 
@@ -129,6 +129,22 @@ public final class LanguageHelper {
         saveConfig(defaultConf, file);
     }
 
+    public void sendMess(Player p, String messageKey, boolean usePrefix, Map<String, String> placeholders) {
+        String message = getMess(p, messageKey, usePrefix);
+        for (String placeholder : placeholders.keySet()) {
+            message = message.replace(placeholder, placeholders.get(placeholder));
+        }
+        send(p, message);
+    }
+
+    public void sendMess(Player p, String messageKey, boolean usePrefix) {
+        send(p, getMess(p, messageKey, usePrefix));
+    }
+
+    private void send(Player p, String s) {
+        p.sendMessage(s);
+    }
+
     public List<String> getLore(Player p, String loreKey) {
         String pLang;
         if (!playerLangs.containsKey(p.getUniqueId())) {
@@ -190,7 +206,7 @@ public final class LanguageHelper {
         if (!isUseDB()) {
             if (pLangConf.get(p.getUniqueId().toString()) == null) {
                 String gameLanguage = p.locale().getLanguage().split("_")[0];
-                String defaultLang = this.defaultLang;
+                String defaultLang = LanguageHelper.defaultLang;
                 if (messages.get(gameLanguage) != null) {
                     defaultLang = gameLanguage;
                 }
@@ -204,38 +220,7 @@ public final class LanguageHelper {
                 playerLangs.put(p.getUniqueId(), lang);
             }
         } else {
-            Connection conn = database.getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT lang FROM langusers WHERE uuid = ?;")) {
-                stmt.setString(1, p.getUniqueId().toString());
-                ResultSet rs = stmt.executeQuery();
-
-                if (rs.next()) {
-                    String lang = rs.getString("lang");
-                    playerLangs.put(p.getUniqueId(), lang);
-                } else {
-                    String gameLanguage = p.locale().getLanguage().split("_")[0];
-                    String defaultLang = this.defaultLang;
-                    if (messages.get(gameLanguage) != null) {
-                        defaultLang = gameLanguage;
-                    }
-
-                    PreparedStatement statemt = conn
-                            .prepareStatement("INSERT INTO langusers(uuid, lang) VALUES(?, ?);");
-                    statemt.setString(1, p.getUniqueId().toString());
-                    statemt.setString(2, defaultLang);
-                    statemt.execute();
-                    statemt.close();
-
-                    pLangConf.set(p.getUniqueId().toString(), defaultLang);
-                    saveConfig(pLangConf, pLangFile);
-                    playerLangs.put(p.getUniqueId(), defaultLang);
-                    p.sendMessage(getMess(p, "NoLangSet", true).replace("%default", defaultLang));
-                }
-                conn.close();
-                stmt.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            this.database.setupPlayer(p);
         }
     }
 
@@ -265,7 +250,7 @@ public final class LanguageHelper {
         return ChatColor.translateAlternateColorCodes('&', s);
     }
 
-    private void saveConfig(YamlConfiguration config, File toSave) {
+    static void saveConfig(YamlConfiguration config, File toSave) {
         try {
             config.save(toSave);
         } catch (IOException e) {
@@ -280,16 +265,7 @@ public final class LanguageHelper {
         saveConfig(pLangConf, pLangFile);
 
         if (isUseDB()) {
-            Connection conn = database.getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement("UPDATE langusers SET lang = ? WHERE uuid = ?;")) {
-                stmt.setString(1, newLang);
-                stmt.setString(2, p.toString());
-                stmt.executeUpdate();
-                stmt.close();
-                conn.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+            this.database.updateUser(p.toString(), newLang);
         }
     }
 
