@@ -5,6 +5,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import Kyu.LangSupport.DB.DB;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
@@ -15,7 +17,7 @@ import java.util.*;
 
 public final class LanguageHelper {
 
-    static String defaultLang;
+    private String defaultLang;
     private Reader defaultLangResource;
 
     private String prefix;
@@ -23,23 +25,23 @@ public final class LanguageHelper {
     private boolean useDB;
     private DB database;
 
-    static YamlConfiguration pLangConf;
-    static File pLangFile;
+    private YamlConfiguration pLangConf;
+    private File pLangFile;
 
-    static Map<String, Map<String, String>> messages = new HashMap<>();
+    private Map<String, Map<String, String>> messages = new HashMap<>();
     private Map<String, Map<String, List<String>>> lores = new HashMap<>();
 
-    static Map<UUID, String> playerLangs = new HashMap<>();
+    private Map<UUID, String> playerLangs = new HashMap<>();
 
     private JavaPlugin plugin;
 
-    static LanguageHelper instance;
+    private static LanguageHelper instance;
 
     public LanguageHelper(JavaPlugin plugin, String defaultLang, Reader langResource, String prefix, boolean useDB) {
         LanguageHelper.instance = this;
         this.plugin = plugin;
         this.useDB = useDB;
-        LanguageHelper.defaultLang = defaultLang;
+        this.defaultLang = defaultLang;
         this.defaultLangResource = langResource;
         this.prefix = prefix;
 
@@ -113,7 +115,7 @@ public final class LanguageHelper {
     }
 
     /*
-     * TODO: this
+     * TODO: support for multiple lang files in ressources
      */
     private void updateLangsDB() {
         YamlConfiguration refConf = YamlConfiguration.loadConfiguration(defaultLangResource);
@@ -237,7 +239,7 @@ public final class LanguageHelper {
         if (!isUseDB()) {
             if (pLangConf.get(p.getUniqueId().toString()) == null) {
                 String gameLanguage = p.locale().getLanguage().split("_")[0];
-                String defaultLang = LanguageHelper.defaultLang;
+                String defaultLang = this.defaultLang;
                 if (messages.get(gameLanguage) != null) {
                     defaultLang = gameLanguage;
                 }
@@ -281,7 +283,7 @@ public final class LanguageHelper {
         return ChatColor.translateAlternateColorCodes('&', s);
     }
 
-    static void saveConfig(YamlConfiguration config, File toSave) {
+    public void saveConfig(YamlConfiguration config, File toSave) {
         try {
             config.save(toSave);
         } catch (IOException e) {
@@ -308,6 +310,26 @@ public final class LanguageHelper {
         return defaultLang;
     }
 
+    public Map<UUID, String> getPlayerLangs() {
+        return playerLangs;
+    }
+
+    public Map<String, Map<String, String>> getMessages() {
+        return messages;
+    }
+
+    public Map<String, Map<String, List<String>>> getLores() {
+        return lores;
+    }
+
+    public YamlConfiguration getpLangConf() {
+        return pLangConf;
+    }
+
+    public File getpLangFile() {
+        return pLangFile;
+    }
+
     public boolean isUseDB() {
         return useDB;
     }
@@ -322,5 +344,9 @@ public final class LanguageHelper {
 
     public JavaPlugin getPlugin() {
         return plugin;
+    }
+
+    public static LanguageHelper getInstance() {
+        return instance;
     }
 }
