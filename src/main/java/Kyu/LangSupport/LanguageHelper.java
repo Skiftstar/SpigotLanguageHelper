@@ -67,13 +67,23 @@ public final class LanguageHelper {
             folder.mkdir();
         }
 
-        loadMessages();
+        if (isUseDB() && this.database.isStoreMessagesInDB()) {
+            loadMessagesDB();
+        } else {
+            loadMessagesLocal();
+        }
         MessageJoinListener listener = new MessageJoinListener(plugin, this);
         plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, "my:channel", listener);
     }
 
-    private void loadMessages() {
-        updateDefaultLangFile();
+    private void loadMessagesDB() {
+        updateLangsDB();
+        messages = this.database.getMessages();
+        lores = this.database.getLores();
+    }
+
+    private void loadMessagesLocal() {
+        updateLangsLocal();
 
         File folder = new File(plugin.getDataFolder() + "/locales");
         for (File file : folder.listFiles()) {
@@ -102,7 +112,28 @@ public final class LanguageHelper {
 
     }
 
-    private void updateDefaultLangFile() {
+    /*
+     * TODO: this
+     */
+    private void updateLangsDB() {
+        YamlConfiguration refConf = YamlConfiguration.loadConfiguration(defaultLangResource);
+        for (String topKey : refConf.getKeys(false)) {
+            for (String mess : refConf.getConfigurationSection(topKey).getKeys(false)) {
+                if (!database.hasKey(defaultLang, topKey + "." + mess)) {
+                    if (topKey.toLowerCase().contains("lores")) {
+                        database.setLore(defaultLang, topKey + "." + mess, refConf.getStringList(topKey + "." + mess));
+                    } else {
+                        database.setMessage(defaultLang, topKey + "." + mess, refConf.getString(topKey + "." + mess));
+                    }
+                }
+            }
+        }
+    }
+
+    /*
+     * TODO: support for multiple lang files in ressources
+     */
+    private void updateLangsLocal() {
         File file = new File(plugin.getDataFolder(), "locales/" + defaultLang + ".yml");
         if (!file.exists()) {
             try {
@@ -287,5 +318,9 @@ public final class LanguageHelper {
 
     public Set<String> getLanguages() {
         return messages.keySet();
+    }
+
+    public JavaPlugin getPlugin() {
+        return plugin;
     }
 }
