@@ -18,7 +18,7 @@ import java.util.*;
 public final class LanguageHelper {
 
     private String defaultLang;
-    private Reader defaultLangResource;
+    private List<Reader> langRessources;
 
     private String prefix;
 
@@ -42,7 +42,18 @@ public final class LanguageHelper {
         this.plugin = plugin;
         this.useDB = useDB;
         this.defaultLang = defaultLang;
-        this.defaultLangResource = langResource;
+        this.langRessources = new ArrayList<>(Arrays.asList(langResource));
+        this.prefix = prefix;
+
+        setup();
+    }
+
+    public LanguageHelper(JavaPlugin plugin, String defaultLang, List<Reader> langResources, String prefix, boolean useDB) {
+        LanguageHelper.instance = this;
+        this.plugin = plugin;
+        this.useDB = useDB;
+        this.defaultLang = defaultLang;
+        this.langRessources = langResources;
         this.prefix = prefix;
 
         setup();
@@ -114,52 +125,54 @@ public final class LanguageHelper {
 
     }
 
-    /*
-     * TODO: support for multiple lang files in ressources
-     */
     private void updateLangsDB() {
-        YamlConfiguration refConf = YamlConfiguration.loadConfiguration(defaultLangResource);
-        for (String topKey : refConf.getKeys(false)) {
-            for (String mess : refConf.getConfigurationSection(topKey).getKeys(false)) {
-                if (!database.hasKey(defaultLang, topKey + "." + mess)) {
-                    if (topKey.toLowerCase().contains("lores")) {
-                        database.setLore(defaultLang, topKey + "." + mess, refConf.getStringList(topKey + "." + mess));
-                    } else {
-                        database.setMessage(defaultLang, topKey + "." + mess, refConf.getString(topKey + "." + mess));
+        for (Reader langRessource : langRessources) {
+            YamlConfiguration refConf = YamlConfiguration.loadConfiguration(langRessource);
+            final String langName = refConf.getName().split(".yml")[0];
+            for (String topKey : refConf.getKeys(false)) {
+                for (String mess : refConf.getConfigurationSection(topKey).getKeys(false)) {
+                    if (!database.hasKey(langName, topKey + "." + mess)) {
+                        if (topKey.toLowerCase().contains("lores")) {
+                            database.setLore(langName, topKey + "." + mess, refConf.getStringList(topKey + "." + mess));
+                        } else {
+                            database.setMessage(langName, topKey + "." + mess, refConf.getString(topKey + "." + mess));
+                        }
                     }
                 }
             }
         }
     }
 
-    /*
-     * TODO: support for multiple lang files in ressources
-     */
     private void updateLangsLocal() {
-        File file = new File(plugin.getDataFolder(), "locales/" + defaultLang + ".yml");
-        if (!file.exists()) {
-            try {
-                Files.copy(plugin.getResource(defaultLang + ".yml"), file.toPath());
-                return;
-            } catch (IOException e) {
-                e.printStackTrace();
-                return;
+        for (Reader langResource : langRessources) {
+            YamlConfiguration refConf = YamlConfiguration.loadConfiguration(langResource);
+            final String langName = refConf.getName();
+
+            File file = new File(plugin.getDataFolder(), "locales/" + langName);
+            if (!file.exists()) {
+                try {
+                    Files.copy(plugin.getResource(langName), file.toPath());
+                    return;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    return;
+                }
             }
-        }
-        YamlConfiguration refConf = YamlConfiguration.loadConfiguration(defaultLangResource);
-        YamlConfiguration defaultConf = YamlConfiguration.loadConfiguration(file);
-        for (String topKey : refConf.getKeys(false)) {
-            for (String mess : refConf.getConfigurationSection(topKey).getKeys(false)) {
-                if (defaultConf.get(topKey + "." + mess) == null) {
-                    if (topKey.toLowerCase().contains("lores")) {
-                        defaultConf.set(topKey + "." + mess, refConf.getStringList(topKey + "." + mess));
-                    } else {
-                        defaultConf.set(topKey + "." + mess, refConf.getString(topKey + "." + mess));
+
+            YamlConfiguration langConfig = YamlConfiguration.loadConfiguration(file);
+            for (String topKey : refConf.getKeys(false)) {
+                for (String mess : refConf.getConfigurationSection(topKey).getKeys(false)) {
+                    if (langConfig.get(topKey + "." + mess) == null) {
+                        if (topKey.toLowerCase().contains("lores")) {
+                            langConfig.set(topKey + "." + mess, refConf.getStringList(topKey + "." + mess));
+                        } else {
+                            langConfig.set(topKey + "." + mess, refConf.getString(topKey + "." + mess));
+                        }
                     }
                 }
             }
+            saveConfig(langConfig, file);
         }
-        saveConfig(defaultConf, file);
     }
 
     public void sendMess(Player p, String messageKey, boolean usePrefix, Map<String, String> placeholders) {
