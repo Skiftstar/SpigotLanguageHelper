@@ -1,4 +1,4 @@
-# SpigotLangaugeHelper
+# SpigotLanguageHelper
 
 Add using maven:
 ```
@@ -11,7 +11,7 @@ For LanguageHelper object:
 ```
 <dependency>
   <groupId>com.github.Skiftstar</groupId>
-  <artifactId>SpigotLangaugeHelper</artifactId>
+  <artifactId>SpigotLanguageHelper</artifactId>
   <version>1.3-SNAPSHOT</version>
 </dependency>
 ```
@@ -19,7 +19,7 @@ For static LanguageHelper:
 ```
 <dependency>
   <groupId>com.github.Skiftstar</groupId>
-  <artifactId>SpigotLangaugeHelper</artifactId>
+  <artifactId>SpigotLanguageHelper</artifactId>
   <version>1.2-SNAPSHOT</version>
 </dependency>
 ```
