@@ -183,6 +183,23 @@ public final class LanguageHelper {
         send(p, message);
     }
 
+    /**
+     * Same as sendMess but replaces generic {} placeholder so no map is needed
+     * @param p
+     * @param messageKey
+     * @param usePrefix
+     * @param placeholders
+     */
+    public void sendMess(Player p, String messageKey, boolean usePrefix, String... placeholders) {
+        String message = getMess(p, messageKey, usePrefix);
+        if (placeholders.length > 0) {
+            for (String placeholder : placeholders) {
+                message = message.replaceFirst("{}", placeholder);
+            }
+        }
+        send(p, message);
+    }
+
     public void sendMess(Player p, String messageKey, boolean usePrefix) {
         send(p, getMess(p, messageKey, usePrefix));
     }
