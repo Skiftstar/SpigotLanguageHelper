@@ -18,7 +18,7 @@ import java.util.*;
 public final class LanguageHelper {
 
     private String defaultLang;
-    private List<Reader> langRessources;
+    private Map<String, Reader> langRessources;
 
     private String prefix;
 
@@ -37,34 +37,41 @@ public final class LanguageHelper {
 
     private static LanguageHelper instance;
 
-    public LanguageHelper(JavaPlugin plugin, String defaultLang, Reader langResource, String prefix, boolean useDB) {
+    public LanguageHelper(JavaPlugin plugin, String defaultLang, Reader langResource, String resourceName, String prefix, DB... database) {
         LanguageHelper.instance = this;
         this.plugin = plugin;
-        this.useDB = useDB;
         this.defaultLang = defaultLang;
-        this.langRessources = new ArrayList<>(Arrays.asList(langResource));
+        this.langRessources = new HashMap<>() {{ put(resourceName, langResource); }};
         this.prefix = prefix;
+        if (database.length > 0) {
+            this.useDB = true;
+            this.database = database[0];
+            this.database.init();
+        }
 
         setup();
     }
 
-    public LanguageHelper(JavaPlugin plugin, String defaultLang, List<Reader> langResources, String prefix, boolean useDB) {
+    public LanguageHelper(JavaPlugin plugin, String defaultLang, Map<String, Reader> langResources, String prefix, DB... database) {
         LanguageHelper.instance = this;
         this.plugin = plugin;
-        this.useDB = useDB;
         this.defaultLang = defaultLang;
         this.langRessources = langResources;
         this.prefix = prefix;
+        if (database.length > 0) {
+            this.useDB = true;
+            this.database = database[0];
+            this.database.init();
+        }
 
         setup();
-    }
-
-    public void setDatabase(DB database) {
-        this.database = database;
     }
 
     public void setup() {
         pLangFile = new File(plugin.getDataFolder(), "playerLangs.yml");
+        if (!plugin.getDataFolder().exists()) {
+            plugin.getDataFolder().mkdirs();
+        }
         if (!pLangFile.exists()) {
             try {
                 pLangFile.createNewFile();
@@ -126,16 +133,16 @@ public final class LanguageHelper {
     }
 
     private void updateLangsDB() {
-        for (Reader langRessource : langRessources) {
-            YamlConfiguration refConf = YamlConfiguration.loadConfiguration(langRessource);
-            final String langName = refConf.getName().split(".yml")[0];
+        for (String langRessourceName : langRessources.keySet()) {
+            YamlConfiguration refConf = YamlConfiguration.loadConfiguration(langRessources.get(langRessourceName));
+            final String langName = langRessourceName;
             for (String topKey : refConf.getKeys(false)) {
                 for (String mess : refConf.getConfigurationSection(topKey).getKeys(false)) {
-                    if (!database.hasKey(langName, topKey + "." + mess)) {
+                    if (!database.hasKey(langName, topKey, mess)) {
                         if (topKey.toLowerCase().contains("lores")) {
-                            database.setLore(langName, topKey + "." + mess, refConf.getStringList(topKey + "." + mess));
+                            database.setLore(langName, topKey, mess, refConf.getStringList(topKey + "." + mess));
                         } else {
-                            database.setMessage(langName, topKey + "." + mess, refConf.getString(topKey + "." + mess));
+                            database.setMessage(langName, topKey, mess, refConf.getString(topKey + "." + mess));
                         }
                     }
                 }
@@ -144,9 +151,9 @@ public final class LanguageHelper {
     }
 
     private void updateLangsLocal() {
-        for (Reader langResource : langRessources) {
-            YamlConfiguration refConf = YamlConfiguration.loadConfiguration(langResource);
-            final String langName = refConf.getName();
+        for (String langResourceName : langRessources.keySet()) {
+            YamlConfiguration refConf = YamlConfiguration.loadConfiguration(langRessources.get(langResourceName));
+            final String langName = langResourceName;
 
             File file = new File(plugin.getDataFolder(), "locales/" + langName);
             if (!file.exists()) {

@@ -1,5 +1,7 @@
 package Kyu.LangSupport.DB;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -9,6 +11,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 
 import org.bukkit.entity.Player;
 import org.mariadb.jdbc.MariaDbDataSource;
@@ -17,17 +20,23 @@ import Kyu.LangSupport.LanguageHelper;
 
 public class MariaDB implements DB {
 
-    private String user, password, url;
+    private String user, password, url, host, database;
+    private int port;
     private MariaDbDataSource dataSource;
     private boolean storeMessagesInDB;
 
     private LanguageHelper helperInstance;
 
     public MariaDB(String host, int port, String user, String password, String database, boolean storeMessagesInDB) {
-        super();
         this.user = user;
         this.password = password;
+        this.host = host;
+        this.port = port;
+        this.database = database;
         this.storeMessagesInDB = storeMessagesInDB;
+    }
+
+    public void init() {
         this.helperInstance = LanguageHelper.getInstance(); 
         try {
             Class.forName("org.mariadb.jdbc.Driver");
@@ -37,9 +46,40 @@ public class MariaDB implements DB {
         try {
             url = "jdbc:mariadb://" + host + ":" + port + "/" + database;
             dataSource = new MariaDbDataSource(url);
+            initDb();
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void initDb() throws SQLException, IOException {
+        // first lets read our setup file.
+        // This file contains statements to create our inital tables.
+        // it is located in the resources.
+        String setup;
+        try (InputStream in = helperInstance.getPlugin().getResource("dbsetup.sql")) {
+            // Java 9+ way
+            setup = new String(in.readAllBytes());
+        } catch (IOException e) {
+            helperInstance.getPlugin().getLogger().log(Level.SEVERE, "Could not read db setup file.", e);
+            throw e;
+        }
+        // Mariadb can only handle a single query per statement. We need to split at ;.
+        String[] queries = setup.split(";");
+        // execute each query to the database.
+        Connection conn = dataSource.getConnection(user, password);
+        PreparedStatement stmt = null;
+        for (String query : queries) {
+            // If you use the legacy way you have to check for empty queries here.
+            if (query.isBlank())
+                continue;
+            stmt = conn.prepareStatement(query);
+            System.out.println(query);
+            stmt.execute();
+            stmt.close();
+        }
+        conn.close();
+        helperInstance.getPlugin().getLogger().info("§2Database setup complete.");
     }
 
     public boolean isStoreMessagesInDB() {
@@ -57,7 +97,7 @@ public class MariaDB implements DB {
 
     public void updateUser(String uuid, String newLang) {
         Connection conn = getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement("UPDATE langusers SET lang = ? WHERE uuid = ?;")) {
+        try (PreparedStatement stmt = conn.prepareStatement("UPDATE userLangs SET lang = ? WHERE uuid = ?;")) {
             stmt.setString(1, newLang);
             stmt.setString(2, uuid);
             stmt.executeUpdate();
@@ -70,7 +110,7 @@ public class MariaDB implements DB {
 
     public void setupPlayer(Player p) {
         Connection conn = getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement("SELECT lang FROM langusers WHERE uuid = ?;")) {
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT lang FROM userLangs WHERE uuid = ?;")) {
             stmt.setString(1, p.getUniqueId().toString());
             ResultSet rs = stmt.executeQuery();
 
@@ -85,7 +125,7 @@ public class MariaDB implements DB {
                 }
 
                 PreparedStatement statemt = conn
-                        .prepareStatement("INSERT INTO langusers(uuid, lang) VALUES(?, ?);");
+                        .prepareStatement("INSERT INTO userLangs(uuid, lang) VALUES(?, ?);");
                 statemt.setString(1, p.getUniqueId().toString());
                 statemt.setString(2, defaultLang);
                 statemt.execute();
@@ -105,11 +145,11 @@ public class MariaDB implements DB {
     }
 
     @Override
-    public boolean hasKey(String language, String messageKey) {
+    public boolean hasKey(String language, String topKey, String msgKey) {
         Connection conn = getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM translations WHERE language = ? AND key = ?;")) {
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM translations WHERE lang = ? AND messKey = ?;")) {
             stmt.setString(1, language);
-            stmt.setString(2, helperInstance.getPlugin().getName() + NAME_SPACER + messageKey);
+            stmt.setString(2, helperInstance.getPlugin().getName() + NAME_SPACER + topKey + NAME_SPACER + msgKey);
             ResultSet rs = stmt.executeQuery();
             stmt.close();
             conn.close();
@@ -122,10 +162,10 @@ public class MariaDB implements DB {
     }
 
     @Override
-    public void setLore(String language, String key, List<String> lore) {
+    public void setLore(String language, String topKey, String msgKey, List<String> lore) {
         Connection conn = getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement("INSERT INTO translations (key, language, lore) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE lore=?;")) {
-            stmt.setString(1, helperInstance.getPlugin().getName() + NAME_SPACER + key);
+        try (PreparedStatement stmt = conn.prepareStatement("INSERT INTO translations (messKey, lang, lore) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE lore=?;")) {
+            stmt.setString(1, helperInstance.getPlugin().getName() + NAME_SPACER + topKey + NAME_SPACER + msgKey);
             stmt.setString(2, language);
             stmt.setString(3, String.join("\n", lore));
             stmt.setString(4, String.join("\n", lore));
@@ -139,10 +179,10 @@ public class MariaDB implements DB {
     }
 
     @Override
-    public void setMessage(String language, String key, String message) {
+    public void setMessage(String language, String topKey, String msgKey, String message) {
         Connection conn = getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement("INSERT INTO translations (key, language, message) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE message=?;")) {
-            stmt.setString(1, helperInstance.getPlugin().getName() + NAME_SPACER + key);
+        try (PreparedStatement stmt = conn.prepareStatement("INSERT INTO translations (messKey, lang, msg) VALUES(?, ?, ?) ON DUPLICATE KEY UPDATE msg=?;")) {
+            stmt.setString(1, helperInstance.getPlugin().getName() + NAME_SPACER + topKey + NAME_SPACER + msgKey);
             stmt.setString(2, language);
             stmt.setString(3, String.join("\n", message));
             stmt.setString(4, String.join("\n", message));
@@ -160,14 +200,14 @@ public class MariaDB implements DB {
         Map<String, Map<String, List<String>>> lores = new HashMap<>();
 
         Connection conn = getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM translations WHERE lore IS NOT NULL ORDER BY language ASC;")) {
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM translations WHERE lore IS NOT NULL ORDER BY lang ASC;")) {
             ResultSet rs = stmt.executeQuery();
 
             String currLang = "";
             Map<String, List<String>> currMap = new HashMap<>();
             while (rs.next()) {
-                String language = rs.getString("language");
-                String key = rs.getString("key").split(NAME_SPACER)[1];
+                String language = rs.getString("lang");
+                String key = rs.getString("messKey").split(NAME_SPACER)[2];
                 List<String> lore = new ArrayList<>(Arrays.asList(rs.getString("lore").split("\n")));
 
                 if (!currLang.equals(language)) {
@@ -179,6 +219,7 @@ public class MariaDB implements DB {
                 }
                 currMap.put(key, lore);
             }
+            lores.put(currLang, currMap);
             stmt.close();
             conn.close();
             return lores;
@@ -194,15 +235,15 @@ public class MariaDB implements DB {
         Map<String, Map<String, String>> messages = new HashMap<>();
 
         Connection conn = getConnection();
-        try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM translations WHERE message IS NOT NULL ORDER BY language ASC;")) {
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM translations WHERE msg IS NOT NULL ORDER BY lang ASC;")) {
             ResultSet rs = stmt.executeQuery();
 
             String currLang = "";
             Map<String, String> currMap = new HashMap<>();
             while (rs.next()) {
-                String language = rs.getString("language");
-                String key = rs.getString("key").split(NAME_SPACER)[1];
-                String message = rs.getString("message");
+                String language = rs.getString("lang");
+                String key = rs.getString("messKey").split(NAME_SPACER)[2];
+                String message = rs.getString("msg");
 
                 if (!currLang.equals(language)) {
                     if (currMap.size() > 0) {
@@ -213,6 +254,7 @@ public class MariaDB implements DB {
                 }
                 currMap.put(key, message);
             }
+            messages.put(currLang, currMap);
             stmt.close();
             conn.close();
             return messages;
