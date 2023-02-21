@@ -12,7 +12,7 @@ For LanguageHelper object:
 <dependency>
   <groupId>com.github.Skiftstar</groupId>
   <artifactId>SpigotLanguageHelper</artifactId>
-  <version>1.3-SNAPSHOT</version>
+  <version>1.5</version>
 </dependency>
 ```
 For static LanguageHelper:
