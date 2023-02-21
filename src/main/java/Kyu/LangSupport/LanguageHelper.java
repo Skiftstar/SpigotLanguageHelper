@@ -4,22 +4,21 @@ import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import Kyu.LangSupport.DB.DB;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.*;
 
 public final class LanguageHelper {
 
     private String defaultLang;
-    private Reader defaultLangResource;
+    private Map<String, Reader> langRessources;
 
     private String prefix;
 
@@ -36,22 +35,43 @@ public final class LanguageHelper {
 
     private JavaPlugin plugin;
 
-    public LanguageHelper(JavaPlugin plugin, String defaultLang, Reader langResource, String prefix, boolean useDB) {
+    private static LanguageHelper instance;
+
+    public LanguageHelper(JavaPlugin plugin, String defaultLang, Reader langResource, String resourceName, String prefix, DB... database) {
+        LanguageHelper.instance = this;
         this.plugin = plugin;
-        this.useDB = useDB;
         this.defaultLang = defaultLang;
-        this.defaultLangResource = langResource;
+        this.langRessources = new HashMap<>() {{ put(resourceName, langResource); }};
         this.prefix = prefix;
+        if (database.length > 0) {
+            this.useDB = true;
+            this.database = database[0];
+            this.database.init();
+        }
 
         setup();
     }
 
-    public void setDatabase(DB database) {
-        this.database = database;
+    public LanguageHelper(JavaPlugin plugin, String defaultLang, Map<String, Reader> langResources, String prefix, DB... database) {
+        LanguageHelper.instance = this;
+        this.plugin = plugin;
+        this.defaultLang = defaultLang;
+        this.langRessources = langResources;
+        this.prefix = prefix;
+        if (database.length > 0) {
+            this.useDB = true;
+            this.database = database[0];
+            this.database.init();
+        }
+
+        setup();
     }
 
     public void setup() {
         pLangFile = new File(plugin.getDataFolder(), "playerLangs.yml");
+        if (!plugin.getDataFolder().exists()) {
+            plugin.getDataFolder().mkdirs();
+        }
         if (!pLangFile.exists()) {
             try {
                 pLangFile.createNewFile();
@@ -67,13 +87,23 @@ public final class LanguageHelper {
             folder.mkdir();
         }
 
-        loadMessages();
+        if (isUseDB() && this.database.isStoreMessagesInDB()) {
+            loadMessagesDB();
+        } else {
+            loadMessagesLocal();
+        }
         MessageJoinListener listener = new MessageJoinListener(plugin, this);
         plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, "my:channel", listener);
     }
 
-    private void loadMessages() {
-        updateDefaultLangFile();
+    private void loadMessagesDB() {
+        updateLangsDB();
+        messages = this.database.getMessages();
+        lores = this.database.getLores();
+    }
+
+    private void loadMessagesLocal() {
+        updateLangsLocal();
 
         File folder = new File(plugin.getDataFolder() + "/locales");
         for (File file : folder.listFiles()) {
@@ -102,31 +132,87 @@ public final class LanguageHelper {
 
     }
 
-    private void updateDefaultLangFile() {
-        File file = new File(plugin.getDataFolder(), "locales/" + defaultLang + ".yml");
-        if (!file.exists()) {
-            try {
-                Files.copy(plugin.getResource(defaultLang + ".yml"), file.toPath());
-                return;
-            } catch (IOException e) {
-                e.printStackTrace();
-                return;
-            }
-        }
-        YamlConfiguration refConf = YamlConfiguration.loadConfiguration(defaultLangResource);
-        YamlConfiguration defaultConf = YamlConfiguration.loadConfiguration(file);
-        for (String topKey : refConf.getKeys(false)) {
-            for (String mess : refConf.getConfigurationSection(topKey).getKeys(false)) {
-                if (defaultConf.get(topKey + "." + mess) == null) {
-                    if (topKey.toLowerCase().contains("lores")) {
-                        defaultConf.set(topKey + "." + mess, refConf.getStringList(topKey + "." + mess));
-                    } else {
-                        defaultConf.set(topKey + "." + mess, refConf.getString(topKey + "." + mess));
+    private void updateLangsDB() {
+        for (String langRessourceName : langRessources.keySet()) {
+            YamlConfiguration refConf = YamlConfiguration.loadConfiguration(langRessources.get(langRessourceName));
+            final String langName = langRessourceName;
+            for (String topKey : refConf.getKeys(false)) {
+                for (String mess : refConf.getConfigurationSection(topKey).getKeys(false)) {
+                    if (!database.hasKey(langName, topKey, mess)) {
+                        if (topKey.toLowerCase().contains("lores")) {
+                            database.setLore(langName, topKey, mess, refConf.getStringList(topKey + "." + mess));
+                        } else {
+                            database.setMessage(langName, topKey, mess, refConf.getString(topKey + "." + mess));
+                        }
                     }
                 }
             }
         }
-        saveConfig(defaultConf, file);
+    }
+
+    private void updateLangsLocal() {
+        for (String langResourceName : langRessources.keySet()) {
+            YamlConfiguration refConf = YamlConfiguration.loadConfiguration(langRessources.get(langResourceName));
+            final String langName = langResourceName;
+
+            File file = new File(plugin.getDataFolder(), "locales/" + langName);
+            if (!file.exists()) {
+                try {
+                    Files.copy(plugin.getResource(langName), file.toPath());
+                    return;
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    return;
+                }
+            }
+
+            YamlConfiguration langConfig = YamlConfiguration.loadConfiguration(file);
+            for (String topKey : refConf.getKeys(false)) {
+                for (String mess : refConf.getConfigurationSection(topKey).getKeys(false)) {
+                    if (langConfig.get(topKey + "." + mess) == null) {
+                        if (topKey.toLowerCase().contains("lores")) {
+                            langConfig.set(topKey + "." + mess, refConf.getStringList(topKey + "." + mess));
+                        } else {
+                            langConfig.set(topKey + "." + mess, refConf.getString(topKey + "." + mess));
+                        }
+                    }
+                }
+            }
+            saveConfig(langConfig, file);
+        }
+    }
+
+    public void sendMess(Player p, String messageKey, boolean usePrefix, Map<String, String> placeholders) {
+        String message = getMess(p, messageKey, usePrefix);
+        for (String placeholder : placeholders.keySet()) {
+            message = message.replace(placeholder, placeholders.get(placeholder));
+        }
+        send(p, message);
+    }
+
+    /**
+     * Same as sendMess but replaces generic {} placeholder so no map is needed
+     * @param p
+     * @param messageKey
+     * @param usePrefix
+     * @param placeholders
+     */
+    public void sendMess(Player p, String messageKey, boolean usePrefix, String... placeholders) {
+        String message = getMess(p, messageKey, usePrefix);
+        if (placeholders.length > 0) {
+            for (String placeholder : placeholders) {
+                message = message.replaceFirst("{}", placeholder);
+            }
+        }
+        send(p, message);
+    }
+
+    public void sendMess(Player p, String messageKey, boolean usePrefix) {
+        send(p, getMess(p, messageKey, usePrefix));
+    }
+
+    private void send(Player p, String s) {
+        p.sendMessage(s);
     }
 
     public List<String> getLore(Player p, String loreKey) {
@@ -204,38 +290,7 @@ public final class LanguageHelper {
                 playerLangs.put(p.getUniqueId(), lang);
             }
         } else {
-            Connection conn = database.getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT lang FROM langusers WHERE uuid = ?;")) {
-                stmt.setString(1, p.getUniqueId().toString());
-                ResultSet rs = stmt.executeQuery();
-
-                if (rs.next()) {
-                    String lang = rs.getString("lang");
-                    playerLangs.put(p.getUniqueId(), lang);
-                } else {
-                    String gameLanguage = p.locale().getLanguage().split("_")[0];
-                    String defaultLang = this.defaultLang;
-                    if (messages.get(gameLanguage) != null) {
-                        defaultLang = gameLanguage;
-                    }
-
-                    PreparedStatement statemt = conn
-                            .prepareStatement("INSERT INTO langusers(uuid, lang) VALUES(?, ?);");
-                    statemt.setString(1, p.getUniqueId().toString());
-                    statemt.setString(2, defaultLang);
-                    statemt.execute();
-                    statemt.close();
-
-                    pLangConf.set(p.getUniqueId().toString(), defaultLang);
-                    saveConfig(pLangConf, pLangFile);
-                    playerLangs.put(p.getUniqueId(), defaultLang);
-                    p.sendMessage(getMess(p, "NoLangSet", true).replace("%default", defaultLang));
-                }
-                conn.close();
-                stmt.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            this.database.setupPlayer(p);
         }
     }
 
@@ -265,7 +320,7 @@ public final class LanguageHelper {
         return ChatColor.translateAlternateColorCodes('&', s);
     }
 
-    private void saveConfig(YamlConfiguration config, File toSave) {
+    public void saveConfig(YamlConfiguration config, File toSave) {
         try {
             config.save(toSave);
         } catch (IOException e) {
@@ -280,16 +335,7 @@ public final class LanguageHelper {
         saveConfig(pLangConf, pLangFile);
 
         if (isUseDB()) {
-            Connection conn = database.getConnection();
-            try (PreparedStatement stmt = conn.prepareStatement("UPDATE langusers SET lang = ? WHERE uuid = ?;")) {
-                stmt.setString(1, newLang);
-                stmt.setString(2, p.toString());
-                stmt.executeUpdate();
-                stmt.close();
-                conn.close();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+            this.database.updateUser(p.toString(), newLang);
         }
     }
 
@@ -299,6 +345,26 @@ public final class LanguageHelper {
 
     public String getDefaultLang() {
         return defaultLang;
+    }
+
+    public Map<UUID, String> getPlayerLangs() {
+        return playerLangs;
+    }
+
+    public Map<String, Map<String, String>> getMessages() {
+        return messages;
+    }
+
+    public Map<String, Map<String, List<String>>> getLores() {
+        return lores;
+    }
+
+    public YamlConfiguration getpLangConf() {
+        return pLangConf;
+    }
+
+    public File getpLangFile() {
+        return pLangFile;
     }
 
     public boolean isUseDB() {
@@ -311,5 +377,13 @@ public final class LanguageHelper {
 
     public Set<String> getLanguages() {
         return messages.keySet();
+    }
+
+    public JavaPlugin getPlugin() {
+        return plugin;
+    }
+
+    public static LanguageHelper getInstance() {
+        return instance;
     }
 }
