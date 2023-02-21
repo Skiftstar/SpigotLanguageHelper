@@ -1,7 +1,6 @@
 package Kyu.LangSupport.DB;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -11,7 +10,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
 
 import org.bukkit.entity.Player;
 import org.mariadb.jdbc.MariaDbDataSource;
@@ -53,19 +51,19 @@ public class MariaDB implements DB {
     }
 
     private void initDb() throws SQLException, IOException {
-        // first lets read our setup file.
-        // This file contains statements to create our inital tables.
-        // it is located in the resources.
-        String setup;
-        try (InputStream in = helperInstance.getPlugin().getResource("dbsetup.sql")) {
-            // Java 9+ way
-            setup = new String(in.readAllBytes());
-        } catch (IOException e) {
-            helperInstance.getPlugin().getLogger().log(Level.SEVERE, "Could not read db setup file.", e);
-            throw e;
-        }
-        // Mariadb can only handle a single query per statement. We need to split at ;.
-        String[] queries = setup.split(";");
+        String[] queries = new String[]{"CREATE TABLE IF NOT EXISTS userLangs("
+            + "lang char(50) NOT NULL,"
+            + "uuid char(36) NOT NULL,"
+            + "PRIMARY KEY (uuid)"
+        + ");",
+        
+        "CREATE TABLE IF NOT EXISTS translations("
+          + "lang char(50) NOT NULL,"
+          + "messKey char(255) NOT NULL,"
+          + "msg LONGTEXT,"
+          + "lore LONGTEXT,"
+          + "PRIMARY KEY (messKey, lang)"
+        + ");"};
         // execute each query to the database.
         Connection conn = dataSource.getConnection(user, password);
         PreparedStatement stmt = null;
