@@ -69,6 +69,7 @@ public class MariaDB implements DB {
         PreparedStatement stmt = null;
         for (String query : queries) {
             // If you use the legacy way you have to check for empty queries here.
+            helperInstance.getPlugin().getLogger().info("QUERY + " + query);
             if (query.isBlank())
                 continue;
             stmt = conn.prepareStatement(query);
