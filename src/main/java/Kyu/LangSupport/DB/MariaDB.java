@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.mariadb.jdbc.MariaDbDataSource;
 
@@ -207,7 +208,7 @@ public class MariaDB implements DB {
             while (rs.next()) {
                 String language = rs.getString("lang");
                 String key = rs.getString("messKey").split(NAME_SPACER)[2];
-                List<String> lore = new ArrayList<>(Arrays.asList(rs.getString("lore").split("\n")));
+                List<String> lore = new ArrayList<>(Arrays.asList(color(rs.getString("lore")).split("\n")));
 
                 if (!currLang.equals(language)) {
                     if (currMap.size() > 0) {
@@ -242,7 +243,7 @@ public class MariaDB implements DB {
             while (rs.next()) {
                 String language = rs.getString("lang");
                 String key = rs.getString("messKey").split(NAME_SPACER)[2];
-                String message = rs.getString("msg");
+                String message = color(rs.getString("msg"));
 
                 if (!currLang.equals(language)) {
                     if (currMap.size() > 0) {
@@ -262,6 +263,10 @@ public class MariaDB implements DB {
             e.printStackTrace();
             return new HashMap<>();
         }
+    }
+
+    private String color(String s) {
+        return ChatColor.translateAlternateColorCodes('&', s);
     }
 
 }
