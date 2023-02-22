@@ -134,7 +134,7 @@ public class MariaDB implements DB {
                 helperInstance.getpLangConf().set(p.getUniqueId().toString(), defaultLang);
                 helperInstance.saveConfig(helperInstance.getpLangConf(), helperInstance.getpLangFile());
                 helperInstance.getPlayerLangs().put(p.getUniqueId(), defaultLang);
-                p.sendMessage(
+                if (LanguageHelper.getInstance().isSendNoLangSetMess()) p.sendMessage(
                     helperInstance.getMess(p, "NoLangSet", true).replace("%default", defaultLang));
             }
             conn.close();

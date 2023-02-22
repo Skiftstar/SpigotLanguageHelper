@@ -35,6 +35,8 @@ public final class LanguageHelper {
 
     private JavaPlugin plugin;
 
+    private boolean sendNoLangSetMess = true;
+
     private static LanguageHelper instance;
 
     public LanguageHelper(JavaPlugin plugin, String defaultLang, Reader langResource, String resourceName, String prefix, DB... database) {
@@ -94,6 +96,10 @@ public final class LanguageHelper {
         }
         MessageJoinListener listener = new MessageJoinListener(plugin, this);
         plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, "my:channel", listener);
+    }
+
+    public void setSendNoLangSetMess(boolean sendNoLangSetMess) {
+        this.sendNoLangSetMess = sendNoLangSetMess;
     }
 
     private void loadMessagesDB() {
@@ -284,7 +290,7 @@ public final class LanguageHelper {
                 pLangConf.set(p.getUniqueId().toString(), defaultLang);
                 saveConfig(pLangConf, pLangFile);
                 playerLangs.put(p.getUniqueId(), defaultLang);
-                p.sendMessage(getMess(p, "NoLangSet", true).replace("%default", defaultLang));
+                if (sendNoLangSetMess) p.sendMessage(getMess(p, "NoLangSet", true).replace("%default", defaultLang));
             } else {
                 String lang = pLangConf.getString(p.getUniqueId().toString());
                 playerLangs.put(p.getUniqueId(), lang);
@@ -385,5 +391,9 @@ public final class LanguageHelper {
 
     public static LanguageHelper getInstance() {
         return instance;
+    }
+
+    public boolean isSendNoLangSetMess() {
+        return sendNoLangSetMess;
     }
 }
